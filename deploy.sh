@@ -59,9 +59,10 @@ kubectl apply -f "${SCRIPT_DIR}/k8s-manifests/02-ollama.yaml"
 log "Step 3/4: Deploying monitoring stack (Prometheus + Grafana)..."
 kubectl apply -f "${SCRIPT_DIR}/k8s-manifests/03-monitoring.yaml"
 
-log "Step 4/4: Deploying Chatbot UI + benchmark API..."
-kubectl apply -f "${SCRIPT_DIR}/k8s-manifests/04-chatbot-ui.yaml"
+log "Step 4/4: Deploying benchmark API + Chatbot UI..."
+# Apply 05 before 04: nginx resolves upstream hostnames at startup; benchmark-api Service must exist first.
 kubectl apply -f "${SCRIPT_DIR}/k8s-manifests/05-benchmark.yaml"
+kubectl apply -f "${SCRIPT_DIR}/k8s-manifests/04-chatbot-ui.yaml"
 
 if [ -f "${SCRIPT_DIR}/.env" ]; then
   echo ""
