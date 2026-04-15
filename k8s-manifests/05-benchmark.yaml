@@ -1,0 +1,100 @@
+# Optional API keys (empty = provider skipped). Replace with real keys for full comparison.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: benchmark-api-keys
+  namespace: llm-stack
+type: Opaque
+stringData:
+  ANTHROPIC_API_KEY: ""   # paste your key here, or use: kubectl create secret ... (see README)
+  OPENAI_API_KEY: ""
+  GOOGLE_API_KEY: ""
+  BENCHMARK_TOKEN: ""
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: benchmark-api
+  namespace: llm-stack
+  labels:
+    app: benchmark-api
+spec:
+  selector:
+    app: benchmark-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: benchmark-api
+  namespace: llm-stack
+  labels:
+    app: benchmark-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: benchmark-api
+  template:
+    metadata:
+      labels:
+        app: benchmark-api
+    spec:
+      containers:
+        - name: api
+          image: llm-benchmark:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          env:
+            - name: OLLAMA_BASE_URL
+              value: "http://ollama.llm-stack.svc.cluster.local:11434"
+            - name: OLLAMA_MODEL
+              value: "qwen2.5:0.5b"
+            - name: CLAUDE_MODEL
+              value: "claude-3-5-sonnet-20241022"
+            - name: OPENAI_MODEL
+              value: "gpt-4o"
+            - name: GEMINI_MODEL
+              value: "gemini-2.0-flash"
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: benchmark-api-keys
+                  key: ANTHROPIC_API_KEY
+                  optional: true
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: benchmark-api-keys
+                  key: OPENAI_API_KEY
+                  optional: true
+            - name: GOOGLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: benchmark-api-keys
+                  key: GOOGLE_API_KEY
+                  optional: true
+            - name: BENCHMARK_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: benchmark-api-keys
+                  key: BENCHMARK_TOKEN
+                  optional: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      restartPolicy: Always

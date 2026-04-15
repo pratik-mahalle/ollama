@@ -1,0 +1,125 @@
+---
+# PersistentVolumeClaim for model storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-models-pvc
+  namespace: llm-stack
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Ollama Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: llm-stack
+  labels:
+    app: ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "11434"
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          ports:
+            - containerPort: 11434
+              name: http
+              protocol: TCP
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+            limits:
+              cpu: "4"
+              memory: "4Gi"
+          readinessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: ollama-models
+          persistentVolumeClaim:
+            claimName: ollama-models-pvc
+---
+# Ollama Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: llm-stack
+  labels:
+    app: ollama
+spec:
+  type: ClusterIP
+  ports:
+    - port: 11434
+      targetPort: 11434
+      protocol: TCP
+      name: http
+  selector:
+    app: ollama
+---
+# Job to pull Qwen2.5:0.5b model after Ollama starts
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pull-qwen-model
+  namespace: llm-stack
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-ollama
+          image: curlimages/curl:latest
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for Ollama to be ready..."
+              until curl -sf http://ollama.llm-stack.svc.cluster.local:11434/api/tags; do
+                echo "Ollama not ready yet, retrying in 5s..."
+                sleep 5
+              done
+              echo "Ollama is ready!"
+      containers:
+        - name: pull-model
+          image: curlimages/curl:latest
+          command:
+            - sh
+            - -c
+            - |
+              echo "Pulling qwen2.5:0.5b model..."
+              curl -X POST http://ollama.llm-stack.svc.cluster.local:11434/api/pull \
+                -H "Content-Type: application/json" \
+                -d '{"name": "qwen2.5:0.5b"}'
+              echo ""
+              echo "Model pull complete. Verifying..."
+              curl -s http://ollama.llm-stack.svc.cluster.local:11434/api/tags | grep -o '"qwen2.5:0.5b"' && echo "Model verified!" || echo "Model verification failed"

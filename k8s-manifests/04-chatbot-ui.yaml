@@ -1,0 +1,728 @@
+---
+# Chatbot UI ConfigMap - the actual HTML/JS app
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chatbot-ui
+  namespace: llm-stack
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Qwen Chat — Self-Hosted LLM</title>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+          --bg: #0a0a0f;
+          --surface: #12121a;
+          --surface-2: #1a1a25;
+          --border: #2a2a3a;
+          --text: #e0e0e8;
+          --text-muted: #8888a0;
+          --accent: #6366f1;
+          --accent-glow: rgba(99, 102, 241, 0.15);
+          --user-bg: #1e1e30;
+          --assistant-bg: #141420;
+          --success: #22c55e;
+          --error: #ef4444;
+        }
+
+        body {
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          background: var(--bg);
+          color: var(--text);
+          height: 100vh;
+          display: flex;
+          flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+          padding: 16px 24px;
+          border-bottom: 1px solid var(--border);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: var(--surface);
+        }
+
+        .header h1 {
+          font-size: 18px;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+        }
+
+        .header h1 span { color: var(--accent); }
+
+        .header-nav {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .header-nav a {
+          font-size: 13px;
+          color: var(--text-muted);
+          text-decoration: none;
+          font-weight: 500;
+        }
+
+        .header-nav a:hover { color: var(--accent); }
+
+        .model-badge {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 12px;
+          padding: 4px 10px;
+          border-radius: 4px;
+          background: var(--accent-glow);
+          color: var(--accent);
+          border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .status-dot {
+          width: 8px; height: 8px;
+          border-radius: 50%;
+          display: inline-block;
+          margin-right: 6px;
+          background: var(--error);
+          animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected { background: var(--success); }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+
+        /* Chat area */
+        .chat-container {
+          flex: 1;
+          overflow-y: auto;
+          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .message {
+          max-width: 720px;
+          padding: 14px 18px;
+          border-radius: 10px;
+          line-height: 1.6;
+          font-size: 15px;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+
+        .message.user {
+          background: var(--user-bg);
+          border: 1px solid var(--border);
+          align-self: flex-end;
+          border-bottom-right-radius: 2px;
+        }
+
+        .message.assistant {
+          background: var(--assistant-bg);
+          border: 1px solid var(--border);
+          align-self: flex-start;
+          border-bottom-left-radius: 2px;
+        }
+
+        .message .role {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--text-muted);
+          margin-bottom: 6px;
+        }
+
+        .message.assistant .role { color: var(--accent); }
+
+        .typing-indicator {
+          display: inline-flex;
+          gap: 4px;
+          padding: 4px 0;
+        }
+
+        .typing-indicator span {
+          width: 6px; height: 6px;
+          background: var(--accent);
+          border-radius: 50%;
+          animation: bounce 1.4s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+          0%, 60%, 100% { transform: translateY(0); }
+          30% { transform: translateY(-6px); }
+        }
+
+        /* Input area */
+        .input-area {
+          padding: 16px 24px;
+          border-top: 1px solid var(--border);
+          background: var(--surface);
+        }
+
+        .input-wrapper {
+          max-width: 760px;
+          margin: 0 auto;
+          display: flex;
+          gap: 10px;
+        }
+
+        .input-wrapper textarea {
+          flex: 1;
+          background: var(--surface-2);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          padding: 12px 14px;
+          color: var(--text);
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 15px;
+          resize: none;
+          outline: none;
+          min-height: 44px;
+          max-height: 120px;
+          transition: border-color 0.2s;
+        }
+
+        .input-wrapper textarea:focus {
+          border-color: var(--accent);
+        }
+
+        .input-wrapper button {
+          background: var(--accent);
+          border: none;
+          border-radius: 8px;
+          padding: 0 20px;
+          color: white;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-weight: 600;
+          font-size: 14px;
+          cursor: pointer;
+          transition: opacity 0.2s;
+          white-space: nowrap;
+        }
+
+        .input-wrapper button:hover { opacity: 0.85; }
+        .input-wrapper button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .meta-bar {
+          max-width: 760px;
+          margin: 8px auto 0;
+          display: flex;
+          justify-content: space-between;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 11px;
+          color: var(--text-muted);
+        }
+
+        /* Welcome state */
+        .welcome {
+          text-align: center;
+          margin: auto;
+          max-width: 480px;
+        }
+
+        .welcome h2 {
+          font-size: 24px;
+          margin-bottom: 8px;
+          font-weight: 700;
+        }
+
+        .welcome p {
+          color: var(--text-muted);
+          font-size: 14px;
+          line-height: 1.6;
+          margin-bottom: 20px;
+        }
+
+        .welcome .suggestions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          justify-content: center;
+        }
+
+        .welcome .suggestions button {
+          background: var(--surface-2);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          padding: 8px 14px;
+          color: var(--text);
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 13px;
+          cursor: pointer;
+          transition: border-color 0.2s, background 0.2s;
+        }
+
+        .welcome .suggestions button:hover {
+          border-color: var(--accent);
+          background: var(--accent-glow);
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1><span>Qwen</span> Chat</h1>
+        <div class="header-nav">
+          <a href="benchmark.html">Benchmark</a>
+          <span class="model-badge">qwen2.5:0.5b</span>
+          <span id="status"><span class="status-dot" id="statusDot"></span><span id="statusText">Connecting...</span></span>
+        </div>
+      </div>
+
+      <div class="chat-container" id="chat">
+        <div class="welcome" id="welcome">
+          <h2>Self-Hosted LLM on Kubernetes</h2>
+          <p>This chatbot runs Qwen 2.5 (0.5B) via Ollama, deployed on a Kubernetes cluster. No data leaves your infrastructure.</p>
+          <div class="suggestions">
+            <button onclick="askSuggestion(this)">Which model are you?</button>
+            <button onclick="askSuggestion(this)">What's the latest info you have?</button>
+            <button onclick="askSuggestion(this)">Explain Kubernetes in 3 sentences</button>
+            <button onclick="askSuggestion(this)">Write a haiku about open source</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <div class="input-wrapper">
+          <textarea id="input" placeholder="Ask anything..." rows="1"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"
+            oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+          <button id="sendBtn" onclick="sendMessage()">Send</button>
+        </div>
+        <div class="meta-bar">
+          <span id="latency"></span>
+          <span id="tokens"></span>
+        </div>
+      </div>
+
+      <script>
+        // Nginx proxies same-origin /api/*. Base '' keeps paths as /api/tags (not /api/api/tags).
+        const OLLAMA_URL = window.location.hostname === 'localhost'
+          ? 'http://localhost:11434'
+          : '';
+
+        const chat = document.getElementById('chat');
+        const input = document.getElementById('input');
+        const sendBtn = document.getElementById('sendBtn');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const latencyEl = document.getElementById('latency');
+        const tokensEl = document.getElementById('tokens');
+        const welcome = document.getElementById('welcome');
+
+        let conversationHistory = [];
+
+        // Check Ollama connection
+        async function checkConnection() {
+          try {
+            const res = await fetch(OLLAMA_URL + '/api/tags');
+            if (res.ok) {
+              statusDot.classList.add('connected');
+              statusText.textContent = 'Connected';
+              return true;
+            }
+          } catch (e) {}
+          statusDot.classList.remove('connected');
+          statusText.textContent = 'Disconnected';
+          return false;
+        }
+
+        checkConnection();
+        setInterval(checkConnection, 10000);
+
+        function askSuggestion(btn) {
+          input.value = btn.textContent;
+          sendMessage();
+        }
+
+        function addMessage(role, content) {
+          if (welcome) welcome.style.display = 'none';
+
+          const div = document.createElement('div');
+          div.className = `message ${role}`;
+          div.innerHTML = `<div class="role">${role}</div><div class="content">${escapeHtml(content)}</div>`;
+          chat.appendChild(div);
+          chat.scrollTop = chat.scrollHeight;
+          return div;
+        }
+
+        function addTypingIndicator() {
+          if (welcome) welcome.style.display = 'none';
+
+          const div = document.createElement('div');
+          div.className = 'message assistant';
+          div.id = 'typing';
+          div.innerHTML = `<div class="role">assistant</div><div class="typing-indicator"><span></span><span></span><span></span></div>`;
+          chat.appendChild(div);
+          chat.scrollTop = chat.scrollHeight;
+          return div;
+        }
+
+        function escapeHtml(text) {
+          const div = document.createElement('div');
+          div.textContent = text;
+          return div.innerHTML;
+        }
+
+        async function sendMessage() {
+          const text = input.value.trim();
+          if (!text) return;
+
+          input.value = '';
+          input.style.height = 'auto';
+          sendBtn.disabled = true;
+          latencyEl.textContent = '';
+          tokensEl.textContent = '';
+
+          addMessage('user', text);
+          conversationHistory.push({ role: 'user', content: text });
+
+          const typingDiv = addTypingIndicator();
+          const startTime = performance.now();
+
+          try {
+            const res = await fetch(OLLAMA_URL + '/api/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: 'qwen2.5:0.5b',
+                messages: conversationHistory,
+                stream: false
+              })
+            });
+
+            const data = await res.json();
+            const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+
+            typingDiv.remove();
+
+            const reply = data.message?.content || 'No response received.';
+            addMessage('assistant', reply);
+            conversationHistory.push({ role: 'assistant', content: reply });
+
+            latencyEl.textContent = `${elapsed}s`;
+            if (data.eval_count) {
+              const tps = (data.eval_count / (data.eval_duration / 1e9)).toFixed(1);
+              tokensEl.textContent = `${data.eval_count} tokens · ${tps} tok/s`;
+            }
+          } catch (err) {
+            typingDiv.remove();
+            addMessage('assistant', `Error: Could not reach Ollama. Is the service running?\n\n${err.message}`);
+          }
+
+          sendBtn.disabled = false;
+          input.focus();
+        }
+      </script>
+    </body>
+    </html>
+
+  benchmark.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>LLM Benchmark — Qwen Chat</title>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+          --bg: #0a0a0f;
+          --surface: #12121a;
+          --border: #2a2a3a;
+          --text: #e0e0e8;
+          --text-muted: #8888a0;
+          --accent: #6366f1;
+          --danger: #f87171;
+          --ok: #4ade80;
+        }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        .header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--surface);
+        }
+        .header h1 { font-size: 18px; font-weight: 600; }
+        .header h1 span { color: var(--accent); }
+        .nav { display: flex; gap: 16px; align-items: center; }
+        .nav a {
+          color: var(--text-muted); text-decoration: none; font-size: 14px;
+        }
+        .nav a:hover { color: var(--accent); }
+        main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+        p.note { color: var(--text-muted); font-size: 14px; line-height: 1.6; margin-bottom: 20px; max-width: 900px; }
+        .controls {
+          display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 24px;
+          padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+        }
+        label { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px; }
+        input[type="password"], input[type="text"] {
+          background: #0a0a12; border: 1px solid var(--border); color: var(--text);
+          padding: 8px 12px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 13px;
+          min-width: 260px;
+        }
+        button.primary {
+          background: var(--accent); color: #fff; border: none; padding: 10px 20px;
+          border-radius: 6px; font-weight: 600; cursor: pointer; font-family: inherit;
+        }
+        button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .err { color: var(--danger); margin-top: 12px; font-size: 14px; white-space: pre-wrap; }
+        table {
+          width: 100%; border-collapse: collapse; font-size: 13px;
+          background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+        }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+        th { background: #16161f; color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+        tr:last-child td { border-bottom: none; }
+        td.mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; white-space: pre-wrap; }
+        .summary { margin-top: 24px; padding: 16px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); }
+        .summary h3 { font-size: 14px; margin-bottom: 12px; color: var(--text-muted); }
+        .summary pre { font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.7; color: var(--text); white-space: pre-wrap; }
+      </style>
+    </head>
+    <body>
+      <header class="header">
+        <h1><span>LLM</span> Benchmark</h1>
+        <nav class="nav">
+          <a href="index.html">← Chat</a>
+        </nav>
+      </header>
+      <main>
+        <p class="note">
+          Runs the same 10 prompts against <strong>Ollama (Qwen)</strong> in the cluster and, when keys are configured,
+          <strong>Anthropic Claude</strong>, <strong>OpenAI</strong>, and <strong>Google Gemini</strong>.
+          Set API keys in the Kubernetes Secret <code>benchmark-api-keys</code> (see README).
+          If <code>BENCHMARK_TOKEN</code> is set on the API, paste it below so the UI can call <code>/run</code>.
+          API dollar amounts use approximate static rates for rough comparison only.
+        </p>
+        <div class="controls">
+          <div>
+            <label for="token">Bearer token (optional)</label>
+            <input type="password" id="token" placeholder="BENCHMARK_TOKEN if configured" autocomplete="off">
+          </div>
+          <button class="primary" id="runBtn" type="button">Run benchmark</button>
+        </div>
+        <div id="err" class="err" style="display:none;"></div>
+        <div id="summary" class="summary" style="display:none;"></div>
+        <div style="overflow-x:auto;">
+          <table id="tbl" style="display:none;">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Category</th>
+                <th>Prompt</th>
+                <th>Qwen</th>
+                <th>Claude</th>
+                <th>OpenAI</th>
+                <th>Gemini</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </main>
+      <script>
+        function fmtCell(cell) {
+          if (!cell) return '(missing)';
+          if (cell.skipped) return 'skipped\n' + (cell.reason || '');
+          if (cell.error) return 'error\n' + String(cell.error).slice(0, 200);
+          const s = (cell.latency_ms / 1000).toFixed(2) + 's';
+          let lines = [s];
+          if (typeof cell.cost_usd_est === 'number' && cell.cost_usd_est > 0) lines.push('~$' + cell.cost_usd_est.toFixed(4));
+          if (cell.input_tokens != null) lines.push(String(cell.input_tokens) + '→' + String(cell.output_tokens) + ' tok');
+          return lines.join('\n');
+        }
+        function truncPrompt(p) {
+          if (p.length <= 200) return p;
+          return p.slice(0, 200) + '…';
+        }
+        function addRow(tbody, cells) {
+          const tr = document.createElement('tr');
+          for (const text of cells) {
+            const td = document.createElement('td');
+            td.className = 'mono';
+            td.textContent = text;
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
+        }
+        function runBench() {
+          const btn = document.getElementById('runBtn');
+          const err = document.getElementById('err');
+          const tbl = document.getElementById('tbl');
+          const tbody = document.getElementById('tbody');
+          const sum = document.getElementById('summary');
+          err.style.display = 'none';
+          tbl.style.display = 'none';
+          sum.style.display = 'none';
+          tbody.replaceChildren();
+          btn.disabled = true;
+          const token = document.getElementById('token').value.trim();
+          const headers = { 'Content-Type': 'application/json' };
+          if (token) headers['Authorization'] = 'Bearer ' + token;
+          fetch('/benchmark-api/run', { method: 'POST', headers, body: '{}' })
+            .then(function (res) {
+              return res.json().then(function (data) {
+                return { res: res, data: data };
+              });
+            })
+            .then(function (out) {
+              if (!out.res.ok) {
+                err.textContent = (out.data && out.data.detail) ? String(out.data.detail) : out.res.statusText;
+                err.style.display = 'block';
+                return;
+              }
+              const data = out.data;
+              for (const row of data.rows || []) {
+                addRow(tbody, [
+                  String(row.id),
+                  String(row.category),
+                  truncPrompt(String(row.prompt)),
+                  fmtCell(row.ollama),
+                  fmtCell(row.claude),
+                  fmtCell(row.openai),
+                  fmtCell(row.gemini)
+                ]);
+              }
+              tbl.style.display = 'table';
+              const s = data.summary || {};
+              const pre = document.createElement('pre');
+              const lines = [
+                'Models: Ollama ' + (data.ollama_model || '') + ' | Claude ' + (data.claude_model || '') +
+                  ' | OpenAI ' + (data.openai_model || '') + ' | Gemini ' + (data.gemini_model || ''),
+                'Qwen avg: ' + ((s.ollama && s.ollama.avg_latency_ms != null) ? (s.ollama.avg_latency_ms + ' ms') : '—') + ' | cost $0',
+                'Claude avg: ' + ((s.claude && s.claude.avg_latency_ms != null) ? (s.claude.avg_latency_ms + ' ms') : '—') +
+                  ' | est total $' + ((s.claude && s.claude.total_cost_usd_est != null) ? s.claude.total_cost_usd_est : '0'),
+                'OpenAI avg: ' + ((s.openai && s.openai.avg_latency_ms != null) ? (s.openai.avg_latency_ms + ' ms') : '—') +
+                  ' | est total $' + ((s.openai && s.openai.total_cost_usd_est != null) ? s.openai.total_cost_usd_est : '0'),
+                'Gemini avg: ' + ((s.gemini && s.gemini.avg_latency_ms != null) ? (s.gemini.avg_latency_ms + ' ms') : '—') +
+                  ' | est total $' + ((s.gemini && s.gemini.total_cost_usd_est != null) ? s.gemini.total_cost_usd_est : '0'),
+                '',
+                String(data.pricing_note || '')
+              ];
+              pre.textContent = lines.join('\n');
+              sum.replaceChildren();
+              const h3 = document.createElement('h3');
+              h3.textContent = 'Summary';
+              sum.appendChild(h3);
+              sum.appendChild(pre);
+              sum.style.display = 'block';
+            })
+            .catch(function (e) {
+              err.textContent = String(e && e.message ? e.message : e);
+              err.style.display = 'block';
+            })
+            .finally(function () {
+              btn.disabled = false;
+            });
+        }
+        document.getElementById('runBtn').addEventListener('click', runBench);
+      </script>
+    </body>
+    </html>
+  nginx.conf: |
+    server {
+        listen 8080;
+        server_name _;
+
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+        }
+
+        location /api/ {
+            proxy_pass http://ollama.llm-stack.svc.cluster.local:11434/api/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_read_timeout 300s;
+            proxy_send_timeout 300s;
+        }
+
+        location /benchmark-api/ {
+            proxy_pass http://benchmark-api.llm-stack.svc.cluster.local:8000/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_read_timeout 600s;
+            proxy_send_timeout 600s;
+        }
+    }
+---
+# Chatbot Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatbot-ui
+  namespace: llm-stack
+  labels:
+    app: chatbot-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chatbot-ui
+  template:
+    metadata:
+      labels:
+        app: chatbot-ui
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
+            - name: nginx-conf
+              mountPath: /etc/nginx/conf.d
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+      volumes:
+        - name: html
+          configMap:
+            name: chatbot-ui
+            items:
+              - key: index.html
+                path: index.html
+              - key: benchmark.html
+                path: benchmark.html
+        - name: nginx-conf
+          configMap:
+            name: chatbot-ui
+            items:
+              - key: nginx.conf
+                path: default.conf
+---
+# Chatbot Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatbot-ui
+  namespace: llm-stack
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080
+  selector:
+    app: chatbot-ui
