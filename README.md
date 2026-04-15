@@ -404,4 +404,4 @@ minikube stop
 
 ## Built by
 
-Pratik Mahalle — [LinkedIn](https://linkedin.com/in/pratikmahalle) · [Twitter](https://twitter.com/pratik_mahalle) · [YouTube](https://youtube.com/@thedevopsduo)
+Pratik Mahalle — [LinkedIn](https://linkedin.com/in/mahalle-pratik) · [Twitter](https://twitter.com/pratikstwts) · [YouTube](https://youtube.com/@thedevopsduo)
