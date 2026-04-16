@@ -4,7 +4,7 @@
 
 ## What we're building
 
-<video src="screenshotstudio-animation-1776230098298.mp4" controls width="100%"></video>
+<img src="screenshot-studio-1776230148546.jpg"></img>
 
 ---
 
