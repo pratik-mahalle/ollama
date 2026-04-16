@@ -4,24 +4,7 @@
 
 ## What we're building
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                  Kubernetes (minikube)                   │
-│  Namespace: llm-stack                                    │
-│                                                          │
-│  ┌─────────────┐   ┌──────────────────────────────────┐  │
-│  │  Ollama     │   │  Prometheus + Grafana            │  │
-│  │  Qwen 2.5   │   │  node-exporter + kube-state      │  │
-│  │  port 11434 │   │  port 30300                      │  │
-│  └──────┬──────┘   └──────────────────────────────────┘  │
-│         │                                                │
-│  ┌──────▼──────┐   ┌──────────────────┐                  │
-│  │  Chatbot UI │   │  Benchmark API   │                  │
-│  │  nginx      │   │  FastAPI         │                  │
-│  │  port 30080 │   │  port 8000       │                  │
-│  └─────────────┘   └──────────────────┘                  │
-└──────────────────────────────────────────────────────────┘
-```
+<video src="screenshotstudio-animation-1776230098298.mp4" controls width="100%"></video>
 
 ---
 
@@ -279,14 +262,22 @@ Wait for the pod to be ready:
 kubectl get pods -n llm-stack -w
 ```
 
-Run the benchmark via the API directly:
+Run the benchmark via the API from your machine (**the pod is not bound to your loopback until you forward a port**):
 
 ```bash
-kubectl port-forward svc/benchmark-api 8000:8000 -n llm-stack &
+# Leave this running in a terminal (or run it in the background with &).
+kubectl port-forward svc/benchmark-api 8000:8000 -n llm-stack
+```
+
+In another terminal:
+
+```bash
 curl -sS -X POST http://127.0.0.1:8000/run \
      -H 'Content-Type: application/json' \
      -d '{}' | python3 -m json.tool
 ```
+
+If `curl` prints `Failed to connect to 127.0.0.1 port 8000`, the port-forward above is not running or the `benchmark-api` Service has no ready endpoints (`kubectl get endpoints benchmark-api -n llm-stack`).
 
 Or open the Chatbot URL and click the **Benchmark** tab.
 

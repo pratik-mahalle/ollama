@@ -277,7 +277,7 @@ data:
       <div class="header">
         <h1><span>Qwen</span> Chat</h1>
         <div class="header-nav">
-          <a href="benchmark.html">Benchmark</a>
+          <a href="/benchmark.html">Benchmark</a>
           <span class="model-badge">qwen2.5:0.5b</span>
           <span id="status"><span class="status-dot" id="statusDot"></span><span id="statusText">Connecting...</span></span>
         </div>
@@ -638,6 +638,10 @@ data:
     server {
         listen 8080;
         server_name _;
+
+        location = /benchmark {
+            return 302 /benchmark.html;
+        }
 
         location / {
             root /usr/share/nginx/html;
